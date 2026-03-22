@@ -984,24 +984,24 @@ $('enhanceBtn').addEventListener('click', async () => {
 
     showLoadingAnim();
 
-    const response = await fetch('/api/enhance', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        apiKey,
-        image: dataUri,
-        scale: scale,
-        face_enhance: faceEnhance
-      })
-    });
-
-    if (!response.ok) {
-      const err = await response.json();
-      throw new Error(err.detail || `API error ${response.status}`);
+    let result, attempts = 0;
+    while (attempts < 10) {
+      const resp = await fetch('/api/enhance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ apiKey, image: dataUri })
+      });
+      result = await resp.json();
+      if (result.retry) {
+        $('loadingText').textContent = 'Model warming up, retrying…';
+        await sleep(5000);
+        attempts++;
+        continue;
+      }
+      if (!resp.ok) throw new Error(result.error || `API error ${resp.status}`);
+      break;
     }
-
-    const result = await response.json();
-    if (result.error) throw new Error(result.error);
+    if (!result || !result.output) throw new Error('Enhancement failed — try again in a moment.');
 
     const resultUrl = result.output;
     enhancedUrl = resultUrl;
