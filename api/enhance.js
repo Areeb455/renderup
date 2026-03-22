@@ -14,7 +14,7 @@ export default async function handler(req, res) {
 
     // Using stabilityai's upscaler - actively maintained on HF
     const r = await fetch(
-      'https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-x4-upscaler',
+      'https://router.huggingface.co/hf-inference/models/caidas/swin2SR-realworld-sr-x4-64-bsrgan-psnr',
       {
         method: 'POST',
         headers: {
