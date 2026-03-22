@@ -12,8 +12,9 @@ export default async function handler(req, res) {
     const base64Data = image.replace(/^data:image\/\w+;base64,/, '');
     const imageBuffer = Buffer.from(base64Data, 'base64');
 
+    // Using stabilityai's upscaler - actively maintained on HF
     const r = await fetch(
-      'https://api-inference.huggingface.co/models/caidas/swin2SR-realworld-sr-x4-64-bsrgan-psnr',
+      'https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-x4-upscaler',
       {
         method: 'POST',
         headers: {
@@ -25,8 +26,15 @@ export default async function handler(req, res) {
     );
 
     if (!r.ok) {
-      const err = await r.text();
-      return res.status(r.status).json({ error: err });
+      const errText = await r.text();
+      // If model is loading, tell frontend to retry
+      try {
+        const errJson = JSON.parse(errText);
+        if (errJson.estimated_time) {
+          return res.status(503).json({ error: `Model loading, retry in ${Math.ceil(errJson.estimated_time)}s`, retry: true });
+        }
+      } catch {}
+      return res.status(r.status).json({ error: errText });
     }
 
     const arrayBuffer = await r.arrayBuffer();
