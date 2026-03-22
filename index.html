@@ -984,20 +984,14 @@ $('enhanceBtn').addEventListener('click', async () => {
 
     showLoadingAnim();
 
-    const PROXY = 'https://corsproxy.io/?url=';
-    const response = await fetch(PROXY + encodeURIComponent('https://api.replicate.com/v1/predictions'), {
+    const response = await fetch('/api/enhance', {
       method: 'POST',
-      headers: {
-        'Authorization': `Token ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        version: '42fed1c4974146d4d2414e2be2c5277c7fcf05fcc3a73abf41610695738c1d7b',
-        input: {
-          image: dataUri,
-          scale: scale,
-          face_enhance: faceEnhance
-        }
+        apiKey,
+        image: dataUri,
+        scale: scale,
+        face_enhance: faceEnhance
       })
     });
 
@@ -1045,8 +1039,10 @@ async function pollPrediction(id, apiKey) {
     $('loadingText').textContent = texts[tick % texts.length];
     tick++;
 
-    const r = await fetch(PROXY + encodeURIComponent(`https://api.replicate.com/v1/predictions/${id}`), {
-      headers: { 'Authorization': `Token ${apiKey}` }
+    const r = await fetch('/api/enhance', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ apiKey, predictionId: id })
     });
     const data = await r.json();
 
