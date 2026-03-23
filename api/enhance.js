@@ -12,15 +12,9 @@ export default async function handler(req, res) {
     const base64Data = image.replace(/^data:image\/\w+;base64,/, '');
     const imageBuffer = Buffer.from(base64Data, 'base64');
 
-    // DeepAI Image Super Resolution - free tier, no credit card
-    const FormData = (await import('node:buffer')).Blob;
-    
-    const { default: fetch2 } = await import('node-fetch');
-    
-    // Build multipart form manually
     const boundary = '----FormBoundary' + Math.random().toString(36).slice(2);
     const CRLF = '\r\n';
-    
+
     const header = Buffer.from(
       `--${boundary}${CRLF}Content-Disposition: form-data; name="image"; filename="render.png"${CRLF}Content-Type: image/png${CRLF}${CRLF}`
     );
@@ -32,7 +26,6 @@ export default async function handler(req, res) {
       headers: {
         'api-key': apiKey,
         'Content-Type': `multipart/form-data; boundary=${boundary}`,
-        'Content-Length': body.length.toString(),
       },
       body
     });
@@ -43,7 +36,7 @@ export default async function handler(req, res) {
     }
 
     const data = await r.json();
-    
+
     if (!data.output_url) {
       return res.status(500).json({ error: data.err || 'No output from DeepAI' });
     }
