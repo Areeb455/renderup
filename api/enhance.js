@@ -12,49 +12,43 @@ export default async function handler(req, res) {
     const base64Data = image.replace(/^data:image\/\w+;base64,/, '');
     const imageBuffer = Buffer.from(base64Data, 'base64');
 
-    // Use imglarger API - free tier available, no credit card
-    const formData = new FormData();
-    const blob = new Blob([imageBuffer], { type: 'image/png' });
-    formData.append('image', blob, 'render.png');
-    formData.append('scale', '2');
-
-    // Try HF swin2SR with correct new router URL format
-    const r = await fetch(
-      `https://router.huggingface.co/hf-inference/models/caidas/swin2SR-realworld-sr-x4-64-bsrgan-psnr`,
-      {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-          'Content-Type': 'application/octet-stream',
-          'x-use-cache': 'false',
-        },
-        body: imageBuffer
-      }
+    // DeepAI Image Super Resolution - free tier, no credit card
+    const FormData = (await import('node:buffer')).Blob;
+    
+    const { default: fetch2 } = await import('node-fetch');
+    
+    // Build multipart form manually
+    const boundary = '----FormBoundary' + Math.random().toString(36).slice(2);
+    const CRLF = '\r\n';
+    
+    const header = Buffer.from(
+      `--${boundary}${CRLF}Content-Disposition: form-data; name="image"; filename="render.png"${CRLF}Content-Type: image/png${CRLF}${CRLF}`
     );
+    const footer = Buffer.from(`${CRLF}--${boundary}--${CRLF}`);
+    const body = Buffer.concat([header, imageBuffer, footer]);
+
+    const r = await fetch('https://api.deepai.org/api/torch-srgan', {
+      method: 'POST',
+      headers: {
+        'api-key': apiKey,
+        'Content-Type': `multipart/form-data; boundary=${boundary}`,
+        'Content-Length': body.length.toString(),
+      },
+      body
+    });
 
     if (!r.ok) {
       const errText = await r.text();
-      try {
-        const errJson = JSON.parse(errText);
-        if (errJson.estimated_time) {
-          return res.status(503).json({ 
-            error: `Model loading, retry in ${Math.ceil(errJson.estimated_time)}s`, 
-            retry: true 
-          });
-        }
-        return res.status(r.status).json({ error: errJson.error || errText });
-      } catch {
-        return res.status(r.status).json({ error: errText });
-      }
+      return res.status(r.status).json({ error: errText });
     }
 
-    const arrayBuffer = await r.arrayBuffer();
-    const base64Result = Buffer.from(arrayBuffer).toString('base64');
-    const mimeType = r.headers.get('content-type') || 'image/png';
+    const data = await r.json();
+    
+    if (!data.output_url) {
+      return res.status(500).json({ error: data.err || 'No output from DeepAI' });
+    }
 
-    return res.status(200).json({
-      output: `data:${mimeType};base64,${base64Result}`
-    });
+    return res.status(200).json({ output: data.output_url });
 
   } catch (err) {
     return res.status(500).json({ error: err.message });
