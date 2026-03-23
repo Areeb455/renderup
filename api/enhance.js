@@ -12,19 +12,28 @@ export default async function handler(req, res) {
     const base64Data = image.replace(/^data:image\/\w+;base64,/, '');
     const imageBuffer = Buffer.from(base64Data, 'base64');
 
-    const boundary = '----FormBoundary' + Math.random().toString(36).slice(2);
+    // Upload image to deep-image.ai using multipart
+    const boundary = 'RenderUp' + Date.now();
     const CRLF = '\r\n';
 
-    const header = Buffer.from(
-      `--${boundary}${CRLF}Content-Disposition: form-data; name="image"; filename="render.png"${CRLF}Content-Type: image/png${CRLF}${CRLF}`
+    const part1 = Buffer.from(
+      `--${boundary}${CRLF}` +
+      `Content-Disposition: form-data; name="image"; filename="render.png"${CRLF}` +
+      `Content-Type: image/png${CRLF}${CRLF}`
     );
-    const footer = Buffer.from(`${CRLF}--${boundary}--${CRLF}`);
-    const body = Buffer.concat([header, imageBuffer, footer]);
+    const part2 = Buffer.from(
+      `${CRLF}--${boundary}${CRLF}` +
+      `Content-Disposition: form-data; name="width"${CRLF}${CRLF}` +
+      `x4` +
+      `${CRLF}--${boundary}--${CRLF}`
+    );
 
-    const r = await fetch('https://api.deepai.org/api/torch-srgan', {
+    const body = Buffer.concat([part1, imageBuffer, part2]);
+
+    const r = await fetch('https://deep-image.ai/rest_api/process_result', {
       method: 'POST',
       headers: {
-        'api-key': apiKey,
+        'x-api-key': apiKey,
         'Content-Type': `multipart/form-data; boundary=${boundary}`,
       },
       body
@@ -36,12 +45,11 @@ export default async function handler(req, res) {
     }
 
     const data = await r.json();
-
-    if (!data.output_url) {
-      return res.status(500).json({ error: data.err || 'No output from DeepAI' });
+    if (!data.result_url) {
+      return res.status(500).json({ error: data.message || 'No output received' });
     }
 
-    return res.status(200).json({ output: data.output_url });
+    return res.status(200).json({ output: data.result_url });
 
   } catch (err) {
     return res.status(500).json({ error: err.message });
